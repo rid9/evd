@@ -1,0 +1,31 @@
+.TH KSD 1 ksd\-0.1
+.SH NAME
+ksd \- keyboard shortcuts daemon
+.SH SYNOPSIS
+.B ksd
+.RB [ \-b ]
+.SH DESCRIPTION
+.B ksd
+is a program for globally controlling keyboard shortcuts. It is configured at compile time via the
+.B config.h
+file.
+.SH CONFIGURATION OPTIONS
+.TP
+.B static const char *devname_video;
+Name of the event device providing display related keyboard events.
+.TP
+.B static const char *devname_kb;
+Name of the event device providing other keyboard events.
+.TP
+.B static const double percent_brightness;
+Percentage with which to increase or decrease the display brightness when the brightness keys are pressed.
+.TP
+.B static const char *fname_brightness_max;
+Device file containing the maximum display brightness.
+.TP
+.B static const char *fname_brightness_now;
+Device file containing the current display brightness.
+.SH OPTIONS
+.TP
+.B \-b
+background mode
