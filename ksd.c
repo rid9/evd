@@ -240,6 +240,7 @@ static const int ev_size = sizeof(struct input_event);
 
 /* Screen brightness events. */
 
+static const int brightness_min = 10;
 static int brightness_max;
 static int brightness_step;
 
@@ -329,8 +330,8 @@ static bool handle_brightness_event(void) {
     switch (ev.code) {
         case KEY_BRIGHTNESSDOWN:
             value = now - step;
-            if (value < 10) {
-                value = 10;
+            if (value < brightness_min) {
+                value = brightness_min;
             }
             break;
 
