@@ -244,7 +244,7 @@ static const int brightness_min = 10;
 static int brightness_max;
 static int brightness_step;
 
-#define BRIGHTNESS_VAL_MAX 10
+#define BRIGHTNESS_VAL_LEN 10
 
 /**
  * Reads the brightness value from a file.
@@ -255,7 +255,7 @@ static int read_brightness(const char *fname) {
         fail("could not open brightness device %s: %d", fname, fd);
     }
 
-    char value[BRIGHTNESS_VAL_MAX];
+    char value[BRIGHTNESS_VAL_LEN];
     const ssize_t bytes = read(fd, &value, sizeof(value));
     close(fd);
 
@@ -311,7 +311,7 @@ static void write_brightness(int value) {
                 fname_brightness_now, fd);
     }
 
-    char value_s[BRIGHTNESS_VAL_MAX];
+    char value_s[BRIGHTNESS_VAL_LEN];
     snprintf(value_s, sizeof(value_s), "%d", value);
     write(fd, &value_s, strlen(value_s));
     close(fd);
