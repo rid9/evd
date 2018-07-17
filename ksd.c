@@ -370,7 +370,7 @@ static bool is_ctrl_key(void) {
     return (
         ev.type == EV_KEY &&
         (ev.code == KEY_LEFTCTRL || ev.code == KEY_RIGHTCTRL)
-       );
+    );
 }
 
 /**
