@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdnoreturn.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -30,7 +31,7 @@ static void handle_interrupt() {
 /**
  * Prints a failure message and exits with a failure status.
  */
-static void fail(const char *format, ...) {
+static _Noreturn void fail(const char *format, ...) {
     char buffer[4096];
     va_list args;
     va_start(args, format);

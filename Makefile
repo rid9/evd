@@ -1,4 +1,4 @@
-CC = gcc -Wall -Wextra -std=c99
+CC = gcc -Wall -Wextra -std=c11
 
 ksd: ksd.c config.h
 	${CC} ${CFLAGS} $< -o $@
