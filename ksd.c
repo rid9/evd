@@ -227,7 +227,7 @@ static void release_devices(void) {
     }
 
     if (fd_kb > 0) {
-        ioctl(fd_video, EVIOCGRAB, 0);
+        ioctl(fd_kb, EVIOCGRAB, 0);
         close(fd_kb);
     }
 }
