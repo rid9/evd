@@ -79,7 +79,7 @@ static void scan_devices(void) {
         const char *prefix = "/dev/input/%s";
         char path[sizeof(prefix) + NAME_MAX + 1];
         res = snprintf(path, sizeof(path), prefix, fnames[i]->d_name);
-        if (res < 0 || res > sizeof(path)) {
+        if (res < 0 || res > (long) sizeof(path)) {
             fail("could not store path \"%s\": %d\n", path, res);
         }
 
