@@ -75,15 +75,16 @@ static void scan_devices(void) {
     int found = 0;
 
     for (int i = 0; i < n && found < fname_n; ++i) {
-        char path[11 /* prefix */ + 256 /* d_name */];
-        snprintf(path, sizeof(path), "/dev/input/%s", fnames[i]->d_name);
+        const char *prefix = "/dev/input/%s";
+        char path[sizeof(prefix) + NAME_MAX + 1];
+        snprintf(path, sizeof(path), prefix, fnames[i]->d_name);
 
         const int fd = open(path, O_RDONLY);
         if (fd < 0) {
             fail("could not open %s for reading: %d\n", path, fd);
         }
 
-        char devname[256] = {0};
+        char devname[NAME_MAX + 1] = {0};
         if ((res = ioctl(fd, EVIOCGNAME(sizeof(devname)), devname)) < 0) {
             close(fd);
             fail("could not read device name for %s: %d\n", path, res);
