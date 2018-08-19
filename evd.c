@@ -450,7 +450,7 @@ static bool read_event(int fd) {
         fail("expected to read %d bytes, got %ld", ev_size, (long) bytes);
     }
 
-    if (ev.type == EV_KEY) {
+    if (fd == fd_kb && ev.type == EV_KEY) {
         switch (ev.code) {
             case KEY_LEFTSHIFT:
             case KEY_RIGHTSHIFT:
@@ -465,10 +465,12 @@ static bool read_event(int fd) {
             default:
                 return false;
         }
+
+        forward_event();
+        return true;
     }
 
-    forward_event();
-    return true;
+    return false;
 }
 
 /**
