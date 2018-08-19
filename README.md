@@ -1,7 +1,7 @@
-# ksd - keyboard shortcuts daemon
+# evd - event daemon
 
-ksd is a program for globally controlling keyboard shortcuts on Linux. It is
-configured at compile time via the **config.h** file.
+evd is a program for globally controlling events such as ACPI events or key
+presses on Linux. It is configured at compile time via the **config.h** file.
 
 # Installation
 
@@ -12,5 +12,5 @@ root:
 
 # Running
 
-To run the application, either start it by typing `ksd -b` at the command
+To run the application, either start it by typing `evd -b` at the command
 prompt.

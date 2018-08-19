@@ -17,11 +17,14 @@
 
 #include "config.h"
 
-/* Common. */
-
-static const char *app_name = "ksd";
+/* Forward declarations. */
 
 static void cleanup(void);
+static void forward_event(void);
+
+/* Common. */
+
+static const char *app_name = "evd";
 
 static int stop = 0;
 static void handle_interrupt() {
@@ -242,11 +245,15 @@ static void release_devices(void) {
 static struct input_event ev;
 static const int ev_size = sizeof(struct input_event);
 
+/* Control keys. */
+
+static bool is_shift_down = false;
+static bool is_ctrl_down = false;
+
 /* Screen brightness events. */
 
 static const int brightness_min = 10;
 static int brightness_max;
-static int brightness_step;
 
 #define BRIGHTNESS_VAL_LEN 10
 
@@ -297,12 +304,8 @@ static int get_brightness_now(void) {
  * Returns the amount with which the brightness needs to be increased or
  * decreased.
  */
-static int get_brightness_step(void) {
-    if (brightness_step == 0) {
-        brightness_step = percent_brightness / 100.0 * get_brightness_max();
-    }
-
-    return brightness_step;
+static int get_brightness_step(double percent) {
+    return percent / 100.0 * get_brightness_max();
 }
 
 /**
@@ -326,29 +329,51 @@ static void write_brightness(int value) {
  * handled.
  */
 static bool handle_brightness_event(void) {
+    int value = 0;
+    if (is_ctrl_down) {
+        switch (ev.code) {
+            case KEY_BRIGHTNESSUP:
+                value = get_brightness_max();
+                break;
+
+            case KEY_BRIGHTNESSDOWN:
+                value =
+                    brightness_min +
+                    get_brightness_step(percent_brightness);
+                break;
+
+            default: return false;
+        }
+    }
+
     const int now = get_brightness_now();
-    const int step = get_brightness_step();
 
-    int value;
+    if (value == 0) {
+        const float percent = is_shift_down
+            ? percent_brightness_alt
+            : percent_brightness;
 
-    switch (ev.code) {
-        case KEY_BRIGHTNESSDOWN:
-            value = now - step;
-            if (value < brightness_min) {
-                value = brightness_min;
-            }
-            break;
+        const int step = get_brightness_step(percent);
 
-        case KEY_BRIGHTNESSUP:
-            value = now + step;
-            const int max = get_brightness_max();
-            if (value > max) {
-                value = max;
-            }
-            break;
+        switch (ev.code) {
+            case KEY_BRIGHTNESSDOWN:
+                value = now - step;
+                if (value < brightness_min) {
+                    value = brightness_min;
+                }
+                break;
 
-        default:
-            return false;
+            case KEY_BRIGHTNESSUP:
+                value = now + step;
+                const int max = get_brightness_max();
+                if (value > max) {
+                    value = max;
+                }
+                break;
+
+            default:
+                return false;
+        }
     }
 
     if (value == now) {
@@ -361,30 +386,10 @@ static bool handle_brightness_event(void) {
 
 /* Main event handling. */
 
-static bool is_ctrl_down = false;
-
-/**
- * Returns true if the current event is a Control key event.
- */
-static bool is_ctrl_key(void) {
-    return (
-        ev.type == EV_KEY &&
-        (ev.code == KEY_LEFTCTRL || ev.code == KEY_RIGHTCTRL)
-    );
-}
-
 /**
  * Tries to handle a keyboard event and returns true if the event was handled.
  */
 static bool handle_kb_event(void) {
-    if (is_ctrl_key()) {
-        is_ctrl_down = ev.value > 0;
-    }
-
-    if (is_ctrl_down && ev.code == KEY_C && ev.value > 0) {
-        stop = 1;
-    }
-
     return false;
 }
 
@@ -403,6 +408,44 @@ static bool handle_video_event(void) {
     }
 
     return false;
+}
+
+/**
+ * Returns true if the current key is pressed.
+ */
+static bool is_key_down(void) {
+    return ev.value > 0;
+}
+
+/**
+ * Reads an event from a device file and returns true if the event was handled.
+ */
+static bool read_event(int fd) {
+    ssize_t bytes;
+
+    if ((bytes = read(fd, &ev, ev_size)) < 0) {
+        fail("expected to read %d bytes, got %ld\n", ev_size, (long) bytes);
+    }
+
+    if (ev.type == EV_KEY) {
+        switch (ev.code) {
+            case KEY_LEFTSHIFT:
+            case KEY_RIGHTSHIFT:
+                is_shift_down = is_key_down();
+                break;
+
+            case KEY_LEFTCTRL:
+            case KEY_RIGHTCTRL:
+                is_ctrl_down = is_key_down();
+                break;
+
+            default:
+                return false;
+        }
+    }
+
+    forward_event();
+    return true;
 }
 
 /**
@@ -427,19 +470,10 @@ static bool handle_event(void) {
         exit(EXIT_SUCCESS);
     }
 
-    ssize_t bytes;
-
-#define CHECK_BYTES(b) \
-    if ((b) < 0) { \
-        fail("expected to read %d bytes, got %ld\n", ev_size, (long) bytes); \
-    }
-
     if (FD_ISSET(fd_video, &fds)) {
-        CHECK_BYTES(bytes = read(fd_video, &ev, ev_size));
-        return handle_video_event();
+        return read_event(fd_video) || handle_video_event();
     } else if (FD_ISSET(fd_kb, &fds)) {
-        CHECK_BYTES(bytes = read(fd_kb, &ev, ev_size));
-        return handle_kb_event();
+        return read_event(fd_kb) || handle_kb_event();
     } else {
         fail("expected file descriptor to be set\n");
     }
@@ -463,13 +497,6 @@ static void forward_event(void) {
 static void cleanup(void) {
     destroy_vk();
     release_devices();
-}
-
-/* Cache. */
-
-static void cache(void) {
-    get_brightness_max();
-    get_brightness_step();
 }
 
 /* Arguments. */
@@ -500,7 +527,6 @@ int main(int argc, char *argv[]) {
     scan_devices();
     create_vk();
     capture_devices();
-    cache();
 
     signal(SIGINT, handle_interrupt);
     signal(SIGTERM, handle_interrupt);
