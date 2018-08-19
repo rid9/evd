@@ -31,13 +31,17 @@ static void handle_interrupt() {
     stop = 1;
 }
 
+static const ssize_t error_buffer_l = 4096 * sizeof(char);
+
 /**
  * Prints a failure message and exits with a failure status.
  */
 static _Noreturn void fail(const char *format, ...) {
-    char buffer[4096];
-    va_list args;
-    va_start(args, format);
+    char * const buffer = malloc(error_buffer_l);
+    if (buffer == NULL) {
+        perror("could not allocate memory for error message");
+        goto exit;
+    }
 
     const ssize_t app_name_l = strlen(app_name);
     const ssize_t prefix_l = app_name_l + 2;
@@ -46,7 +50,9 @@ static _Noreturn void fail(const char *format, ...) {
     buffer[app_name_l]= ':';
     buffer[app_name_l + 1] = ' ';
 
-    vsnprintf(buffer + prefix_l, sizeof(buffer) - prefix_l, format, args);
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer + prefix_l, error_buffer_l - prefix_l - 1, format, args);
     va_end(args);
 
     if (errno == 0) {
@@ -56,6 +62,9 @@ static _Noreturn void fail(const char *format, ...) {
         perror(buffer);
     }
 
+    free(buffer);
+
+exit:
     cleanup();
     exit(EXIT_FAILURE);
 }
