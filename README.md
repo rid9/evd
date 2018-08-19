@@ -13,4 +13,4 @@ root:
 # Running
 
 To run the application, either start it by typing `ksd -b` at the command
-prompt, or enable the `ksd` service via **systemd**.
+prompt.
