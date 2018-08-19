@@ -39,10 +39,22 @@ static _Noreturn void fail(const char *format, ...) {
     va_list args;
     va_start(args, format);
 
-    vsnprintf(buffer, sizeof(buffer), format, args);
+    const ssize_t app_name_l = strlen(app_name);
+    const ssize_t prefix_l = app_name_l + 2;
+
+    memcpy(buffer, app_name, app_name_l);
+    buffer[app_name_l]= ':';
+    buffer[app_name_l + 1] = ' ';
+
+    vsnprintf(buffer + prefix_l, sizeof(buffer) - prefix_l, format, args);
     va_end(args);
 
-    fprintf(stderr, "%s: %s", app_name, buffer);
+    if (errno == 0) {
+        fprintf(stderr, buffer);
+        fprintf(stderr, "\n");
+    } else {
+        perror(buffer);
+    }
 
     cleanup();
     exit(EXIT_FAILURE);
@@ -70,7 +82,7 @@ static void scan_devices(void) {
 
     const int n = scandir("/dev/input", &fnames, is_evdev, versionsort);
     if (n < 0) {
-        fail("could not list /dev/input: %d\n", n);
+        fail("could not list /dev/input");
     }
 
     const int devname_video_l = strlen(devname_video);
@@ -83,18 +95,18 @@ static void scan_devices(void) {
         char path[sizeof(prefix) + NAME_MAX + 1];
         res = snprintf(path, sizeof(path), prefix, fnames[i]->d_name);
         if (res < 0 || res > (long) sizeof(path)) {
-            fail("could not store path \"%s\": %d\n", path, res);
+            fail("could not store path \"%s\"", path);
         }
 
         const int fd = open(path, O_RDONLY);
         if (fd < 0) {
-            fail("could not open %s for reading: %d\n", path, fd);
+            fail("could not open %s for reading", path);
         }
 
         char devname[NAME_MAX + 1] = {0};
         if ((res = ioctl(fd, EVIOCGNAME(sizeof(devname)), devname)) < 0) {
             close(fd);
-            fail("could not read device name for %s: %d\n", path, res);
+            fail("could not read device name for %s", path);
         }
         close(fd);
 
@@ -122,11 +134,11 @@ static int fd_vk;
  */
 static void set_vk_evbits(void) {
     if (ioctl(fd_vk, UI_SET_EVBIT, EV_KEY) < 0) {
-        fail("could not set EV_KEY bit on virtual keyboard\n");
+        fail("could not set EV_KEY bit on virtual keyboard");
     }
 
     if (ioctl(fd_vk, UI_SET_EVBIT, EV_SYN) < 0) {
-        fail("could not set EV_SYN bit on virtual keyboard\n");
+        fail("could not set EV_SYN bit on virtual keyboard");
     }
 }
 
@@ -138,8 +150,7 @@ static void set_vk_keybits(void) {
 
     for (int i = 0; i < KEY_MAX; ++i) {
         if ((res = ioctl(fd_vk, UI_SET_KEYBIT, i)) < 0) {
-            fail("could not set key bit %d on virtual keyboard device: %d\n",
-                    i, res);
+            fail("could not set key bit %d on virtual keyboard device", i);
         }
     }
 }
@@ -151,9 +162,8 @@ static void create_vk(void) {
     int res;
 
     fd_vk = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
-
     if (fd_vk < 0) {
-        fail("could not initialize virtual keyboard\n");
+        fail("could not initialize virtual keyboard");
     }
 
     set_vk_evbits();
@@ -169,11 +179,11 @@ static void create_vk(void) {
     dev.id.version = 1;
 
     if ((res = write(fd_vk, &dev, sizeof(dev)) < 0)) {
-        fail("could not write virtual keyboard data: %d\n", res);
+        fail("could not write virtual keyboard data");
     }
 
     if ((res = ioctl(fd_vk, UI_DEV_CREATE)) < 0) {
-        fail("could not create virtual keyboard: %d\n", res);
+        fail("could not create virtual keyboard");
     }
 }
 
@@ -189,7 +199,7 @@ static void destroy_vk(void) {
 
     if ((res = ioctl(fd_vk, UI_DEV_DESTROY)) < 0) {
         close(fd_vk);
-        fail("could not destroy virtual keyboard: %d\n", res);
+        fail("could not destroy virtual keyboard");
     }
 
     close(fd_vk);
@@ -207,21 +217,19 @@ static void capture_devices(void) {
     int res;
 
     if ((fd_video = open(fname_video, O_RDONLY)) < 0) {
-        fail("could not open video device %s for reading: %d\n",
-                fname_video, fd_video);
+        fail("could not open video device %s for reading", fname_video);
     }
 
     if ((res = ioctl(fd_video, EVIOCGRAB, 1)) < 0) {
-        fail("could not capture video device %s: %d\n", fname_video, res);
+        fail("could not capture video device %s", fname_video);
     }
 
     if ((fd_kb = open(fname_kb, O_RDONLY)) < 0) {
-        fail("could not open keyboard device %s for reading: %d\n",
-                fname_kb, fd_kb);
+        fail("could not open keyboard device %s for reading", fname_kb);
     }
 
     if ((res = ioctl(fd_kb, EVIOCGRAB, 1)) < 0) {
-        fail("could not capture keyboard device %s: %d\n", fname_kb, res);
+        fail("could not capture keyboard device %s", fname_kb);
     }
 }
 
@@ -263,7 +271,7 @@ static int brightness_max;
 static int read_brightness(const char *fname) {
     const int fd = open(fname, O_RDONLY);
     if (fd < 0) {
-        fail("could not open brightness device %s: %d", fname, fd);
+        fail("could not open brightness device %s", fname);
     }
 
     char value[BRIGHTNESS_VAL_LEN];
@@ -314,8 +322,8 @@ static int get_brightness_step(double percent) {
 static void write_brightness(int value) {
     const int fd = open(fname_brightness_now, O_WRONLY);
     if (fd < 0) {
-        fail("could not open brightness file %s for writing: %d",
-                fname_brightness_now, fd);
+        fail("could not open brightness file %s for writing",
+                fname_brightness_now);
     }
 
     char value_s[BRIGHTNESS_VAL_LEN];
@@ -424,7 +432,7 @@ static bool read_event(int fd) {
     ssize_t bytes;
 
     if ((bytes = read(fd, &ev, ev_size)) < 0) {
-        fail("expected to read %d bytes, got %ld\n", ev_size, (long) bytes);
+        fail("expected to read %d bytes, got %ld", ev_size, (long) bytes);
     }
 
     if (ev.type == EV_KEY) {
@@ -475,7 +483,7 @@ static bool handle_event(void) {
     } else if (FD_ISSET(fd_kb, &fds)) {
         return read_event(fd_kb) || handle_kb_event();
     } else {
-        fail("expected file descriptor to be set\n");
+        fail("expected file descriptor to be set");
     }
 
     return false;
@@ -488,7 +496,7 @@ static void forward_event(void) {
     int res;
 
     if ((res = write(fd_vk, &ev, ev_size)) < 0) {
-        fail("could not forward event to virtual keyboard: %d\n", res);
+        fail("could not forward event to virtual keyboard");
     }
 }
 
@@ -521,7 +529,7 @@ static void parse_args(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
     parse_args(argc, argv);
     if (background_mode && daemon(0, 0) == -1) {
-        fail("could not enter background mode: %d\n", errno);
+        fail("could not enter background mode");
     }
 
     scan_devices();
