@@ -1,7 +1,7 @@
 # evd - event daemon
 
-evd is a program for globally controlling events such as ACPI events or key
-presses on Linux. It is configured at compile time via the **config.h** file.
+evd is a program for globally controlling events accessible through /dev/input
+on Linux. It is configured at compile time via the **config.h** file.
 
 # Installation
 
