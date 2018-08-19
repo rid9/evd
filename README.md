@@ -12,5 +12,4 @@ root:
 
 # Running
 
-To run the application, either start it by typing `evd -b` at the command
-prompt.
+To run the application, start it by typing `evd -b` at the command prompt.
