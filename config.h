@@ -21,3 +21,11 @@ static const char *fname_brightness_max = "/sys/class/backlight/intel_backlight/
 
 // Device file containing the current display brightness.
 static const char *fname_brightness_now = "/sys/class/backlight/intel_backlight/brightness";
+
+/* Lid. */
+
+// Name of the event device providing lid events.
+static const char *devname_lid = "Lid Switch";
+
+// Device file to which to write the power state.
+static const char *fname_power_state = "/sys/power/state";

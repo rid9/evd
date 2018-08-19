@@ -86,7 +86,9 @@ static void write_file(const char *fname, const char *value) {
 
 static char fname_video[255];
 static char fname_kb[255];
-static const int fname_n = 2;
+static char fname_lid[255];
+
+#define FNAME_N 3
 
 /**
  * Returns true if the name of a directory file represents an event device.
@@ -109,10 +111,11 @@ static void scan_devices(void) {
 
     const int devname_video_l = strlen(devname_video);
     const int devname_kb_l = strlen(devname_kb);
+    const int devname_lid_l = strlen(devname_lid);
 
     int found = 0;
 
-    for (int i = 0; i < n && found < fname_n; ++i) {
+    for (int i = 0; i < n && found < FNAME_N; ++i) {
         const char *prefix = "/dev/input/%s";
         char path[sizeof(prefix) + NAME_MAX + 1];
         res = snprintf(path, sizeof(path), prefix, fnames[i]->d_name);
@@ -138,10 +141,13 @@ static void scan_devices(void) {
         } else if (strncmp(devname, devname_kb, devname_kb_l) == 0) {
             memcpy(fname_kb, path, strlen(path));
             ++found;
+        } else if (strncmp(devname, devname_lid, devname_lid_l) == 0) {
+            memcpy(fname_lid, path, strlen(path));
+            ++found;
         }
     }
 
-    if (found < fname_n) {
+    if (found < FNAME_N) {
         fail("could not find all devices");
     }
 }
@@ -231,6 +237,7 @@ static void destroy_vk(void) {
 
 static int fd_video;
 static int fd_kb;
+static int fd_lid;
 
 /**
  * Opens and captures devices.
@@ -252,6 +259,14 @@ static void capture_devices(void) {
 
     if ((res = ioctl(fd_kb, EVIOCGRAB, 1)) < 0) {
         fail("could not capture keyboard device %s", fname_kb);
+    }
+
+    if ((fd_lid = open(fname_lid, O_RDONLY)) < 0) {
+        fail("could not open lid device %s for reading", fname_lid);
+    }
+
+    if ((res = ioctl(fd_lid, EVIOCGRAB, 1)) < 0) {
+        fail("could not capture lid device %s", fname_lid);
     }
 }
 
@@ -407,6 +422,24 @@ static bool handle_brightness_event(void) {
     return true;
 }
 
+/* Lid events. */
+
+/**
+ * Tries to handle a lid event and returns true if the event was handled.
+ */
+static bool handle_lid_event(void) {
+    if (ev.type != EV_SW || ev.code != SW_LID) {
+        return false;
+    }
+
+    if (ev.value == 1 /* lid down */) {
+        write_file(fname_power_state, "mem");
+        return true;
+    }
+
+    return false;
+}
+
 /* Main event handling. */
 
 /**
@@ -478,18 +511,22 @@ static bool read_event(int fd) {
  * returns true if the event was handled.
  */
 static bool handle_event(void) {
+    const int ev_fds[FNAME_N] = { fd_video, fd_kb, fd_lid };
+
     fd_set fds;
+    int fd_max = -1;
 
     FD_ZERO(&fds);
-    FD_SET(fd_video, &fds);
-    FD_SET(fd_kb, &fds);
-
-    int fd_max = fd_video;
-    if (fd_kb > fd_max) {
-        fd_max = fd_kb;
+    for (int i = 0; i < FNAME_N; ++i) {
+        const int fd = ev_fds[i];
+        FD_SET(fd, &fds);
+        if (ev_fds[i] > fd_max) {
+            fd_max = fd;
+        }
     }
 
     select(fd_max + 1, &fds, NULL, NULL, NULL);
+
     if (stop) {
         cleanup();
         exit(EXIT_SUCCESS);
@@ -499,6 +536,8 @@ static bool handle_event(void) {
         return read_event(fd_video) || handle_video_event();
     } else if (FD_ISSET(fd_kb, &fds)) {
         return read_event(fd_kb) || handle_kb_event();
+    } else if (FD_ISSET(fd_lid, &fds)) {
+        return read_event(fd_lid) || handle_lid_event();
     } else {
         fail("expected file descriptor to be set");
     }
