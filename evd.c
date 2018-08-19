@@ -69,6 +69,19 @@ exit:
     exit(EXIT_FAILURE);
 }
 
+/**
+ * Writes a value to a file.
+ */
+static void write_file(const char *fname, const char *value) {
+    const int fd = open(fname, O_WRONLY);
+    if (fd < 0) {
+        fail("could not open file %s for writing", fname);
+    }
+
+    write(fd, value, strlen(value));
+    close(fd);
+}
+
 /* Devices. */
 
 static char fname_video[255];
@@ -329,16 +342,9 @@ static int get_brightness_step(double percent) {
  * Sets the specified screen brightness.
  */
 static void write_brightness(int value) {
-    const int fd = open(fname_brightness_now, O_WRONLY);
-    if (fd < 0) {
-        fail("could not open brightness file %s for writing",
-                fname_brightness_now);
-    }
-
     char value_s[BRIGHTNESS_VAL_LEN];
     snprintf(value_s, sizeof(value_s), "%d", value);
-    write(fd, &value_s, strlen(value_s));
-    close(fd);
+    write_file(fname_brightness_now, value_s);
 }
 
 /**
